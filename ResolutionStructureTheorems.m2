@@ -26,7 +26,10 @@ export {
     "fastExteriorPower",
     "leftWedge",
     "BE2",
-    "BE2Cache"
+    "BE2Cache",
+    "Q1Coeff",
+    "PCache",
+    "P1"
     }
 exportMutable {}
 
@@ -119,6 +122,21 @@ BE2 (ChainComplex, ZZ) := Matrix => (C, k) -> (
 	C.cache#BE2Cache#k = map(exteriorPower(r#k - 1, C_(k-1)), dual C_k, RawB);
     );
     return C.cache#BE2Cache#k
+    )
+
+P1 = method()
+P1 ChainComplex := Matrix => C -> (
+    if not C.cache#?PCache then C.cache#PCache = new MutableHashTable;
+    if C.cache#PCache#?1 then return C.cache#PCache#1;
+    r := new MutableHashTable;
+    r#1 = rank C.dd_1; r#2 = rank C.dd_2; r#3 = rank C.dd_3;
+    A3 := (dual BE2(C,2))*adjoint(wedgeProduct(r#1 + 1, r#2 - 1, C_1), exteriorPower(r#1 + 1, C_1), exteriorPower(r#2 - 1, C_1));
+    A1 := dual adjoint(wedgeProduct(r#3 - 1, 1, C_3), exteriorPower(r#3 - 1, C_3), C_3);
+    A2 := dual flatten id_(exteriorPower(r#3-1,C_2));
+    B1 := flatten fastExteriorPower(2,C.dd_3);
+    B2 := wedgeProduct(rank C.dd_3 - 1, 1, C_2);
+    C.cache#PCache#1 = (B1**B2)*(A1**A2**A3);
+    return C.cache#PCache#1
     )
 
 beginDocumentation()
@@ -258,6 +276,28 @@ doc ///
 	    the map $\wedge^b M \overset{x \wedge -}{\longrightarrow} \wedge^{a+b} M$
 ///
 
+doc ///
+    Key
+    	P1
+	(P1, ChainComplex)
+    Headline
+    	structure map p1
+    Usage
+    	P1(C)
+    Inputs
+    	C: ChainComplex
+	    a resolution of length 3
+    Outputs
+    	: Matrix
+    Description
+    	Text
+	    (Under construction) Currently implemented as
+	    $$F_3^* \otimes R \otimes \wedge^{r_1 + 1} F_1 \to \wedge^{r_3-1}F_3 \otimes (\wedge^{r_3-1}F_2^* \otimes \wedge^{r_3-1}F_2) \otimes F_2$$
+	    using @TO BE2@{\tt(C,2)} in the last factor, followed by
+	    $$(\wedge^{r_3-1}F_3 \otimes \wedge^{r_3-1}F_2^*) \otimes (\wedge^{r_3-1}F_2 \otimes F_2) \to R \otimes \wedge^{r_3} F_2$$
+	    using the submaximal minors of $d_3$ in the first factor. See p. 13 in "Structure of Free Resolutions of Length 3."
+///
+
 --tests still need to be written
 
 TEST /// --check #0 (BE1)
@@ -280,4 +320,5 @@ for k from 2 to 3 do assert(
     == fastExteriorPower(rank C.dd_k - 1, C.dd_k));
 ///
 
-end
+end--
+installPackage "ResolutionStructureTheorems"

@@ -1,12 +1,12 @@
-DefectAlgebraDual = method() --very WIP
-DefectAlgebraDual (ZZ, ChainComplex) := Module => (k, C) -> (
-    if not C.cache.?DefectCache then C.cache.DefectCache = new MutableHashTable;
-    if not C.cache.DefectCache#?k then (
-	if k == 1 then C.cache.DefectCache#k = dual C_3 ** exteriorPower(rank C.dd_1 + 1, C_1);
-	if k == 2 then C.cache.DefectCache#k = exteriorPower(2, C.cache.DefectCache#1);
-	);
-    return C.cache.DefectCache#k
-    )
+--DefectAlgebraDual = method() --very WIP
+--DefectAlgebraDual (ZZ, ChainComplex) := Module => (k, C) -> (
+--    if not C.cache.?DefectCache then C.cache.DefectCache = new MutableHashTable;
+--    if not C.cache.DefectCache#?k then (
+--	if k == 1 then C.cache.DefectCache#k = dual C_3 ** exteriorPower(rank C.dd_1 + 1, C_1);
+--	if k == 2 then C.cache.DefectCache#k = exteriorPower(2, C.cache.DefectCache#1);
+--	);
+--    return C.cache.DefectCache#k
+--    )
 
 P1 = method()
 P1 ChainComplex := Matrix => C -> (

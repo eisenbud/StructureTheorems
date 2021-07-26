@@ -42,11 +42,12 @@ export {
     "BE2Cache",
     
     --Weyman
+    "Cumulative",
     "Q1Coeff",
     "PCache",
     "P1",
-    "DefectAlgebraDual",
-    "DefectCache"
+    "BracketDualCache",
+    "bracketDual"
     }
 exportMutable {}
 
@@ -84,34 +85,6 @@ restart
 uninstallPackage "ResolutionStructureTheorems"
 installPackage "ResolutionStructureTheorems"
 needsPackage "SchurFunctors"
-
-F_1 = QQ^4;
-F_3 = QQ^2;
-r_1 = 1;
-MBP = bpFromList {
-    (0,{1,1}) => bpFromList {
-        (0,{1}) => dual F_3,
-        (1,apply(r_1+1, i->1)) => F_1
-        }
-    }
-NBP = bpFromList {
-    (0,{1,1}) => dual F_3,
-    (1,apply(r_1+1, i->2)) => F_1
-    }
-f = X -> {
-    (1,
-        tdFromList (
-            {
-                TableauShapes => {{1,1},apply(r_1+1,i->2)},
-                (0,0,0) => (dual F_3)_(X#(0,0,0)#(0,0,0)),
-                (0,0,1) => (dual F_3)_(X#(0,0,1)#(0,0,0))
-                }
-            | flatten apply(r_1+1, i->{
-                    (1,0,i) => (F_1)_(X#(0,0,0)#(1,0,i)),
-                    (1,1,i) => (F_1)_(X#(0,0,1)#(1,0,i))
-                    }
-                )
-            )
-        )
-    }
-time schurMap(NBP, (compileBlueprint MBP)_0, f)
+p=3;q=2;r=5;
+r1 = p-1; f1 = p+q; f3 = r-1; n = 3;
+time bracketDual(r1,f1,f3,5); --takes 25s on my machine

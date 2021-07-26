@@ -68,9 +68,9 @@ doc ///
         resolution structure theorems
     Description
         Text
-            Currently the two structure theorems of Buchsbaum and Eisenbud are
-            implemented, alongside some framework for defining maps between tensor
-            products and composites of Schur modules.
+            Currently implemented: some framework for defining maps between tensor
+            products and composites of Schur modules, the structure theorems of Buchsbaum
+	    and Eisenbud, and (to some extent) Weyman's defect Lie algebra.
 ///
 
 load "./ResolutionStructureTheorems/SchurDoc.m2"
@@ -87,4 +87,4 @@ installPackage "ResolutionStructureTheorems"
 needsPackage "SchurFunctors"
 p=3;q=2;r=5;
 r1 = p-1; f1 = p+q; f3 = r-1; n = 3;
-time bracketDual(r1,f1,f3,5); --takes 25s on my machine
+time bracketDual(r1,f1,f3,n); --it's pretty fast now!

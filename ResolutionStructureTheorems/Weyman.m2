@@ -29,11 +29,14 @@ bracketDual = method(Options => {Cumulative => false, Ring => ZZ}) --produces L_
 bracketDual (ZZ,ZZ,ZZ,ZZ) := Matrix => opts -> (r1,f1,f3,n) -> (
     R := opts#Ring;
     if opts.Cumulative then (
-	LD := directSum(apply(n+1, i -> source bracketDual(r1,f1,f3,i)));
-	return R**fold((x,y)->x|y,apply(1..n, i ->
-		exteriorPower(2,LD_(new Array from 0..(i-1)))*bracketDual(r1,f1,f3,i)
-		)
-	    )
+	h := numrows bracketDual(r1,f1,f3,n);
+	M := fold((x,y) -> x | y,
+	    apply(n+1, i ->
+	    	bracketDual(r1,f1,f3,i) ||
+	    	map(ZZ^(h-numrows bracketDual(r1,f1,f3,i)), source bracketDual(r1,f1,f3,i),0)
+	    	)
+	    );
+	return R**(M || map(ZZ^(binomial(numcols M,2) - numrows M), source M, 0))
 	);
     if (n <= 0) then return map(R^0,R^0,0);
     if (n == 1) then return map(R^0,R^(binomial(f1,r1+1) * f3),0);
@@ -99,17 +102,22 @@ bracketDual (ZZ,ZZ,ZZ,ZZ) := Matrix => opts -> (r1,f1,f3,n) -> (
 	return BracketDualCache#(r1,f1,f3,n) = gens ker (alpha1 || alpha2)
 	);
     bd := bracketDual(r1,f1,f3,n-1,Cumulative => true);
-    Ld := directSum(apply(n, i -> source bracketDual(r1,f1,f3,i)));
-    w2part := fold((x,y)->x|y, apply(1..(floor(n/2)+1), i ->
-	    wedgeProduct(1,1,Ld)*(Ld_[i] ** Ld_[n-i])
-	    )
-	);
-    rawker := gens ker (
-	wedgeProduct(2,1,Ld)
-	*(bd ** id_Ld)
-	*(dual wedgeProduct(1,1,Ld))
-	*w2part
-	);
-    BracketDualCache#(r1,f1,f3,n) = gens gb (w2part*rawker);
+    pieces := apply(n, i -> source bracketDual(r1,f1,f3,i));
+    --the following was an attempt to trim matrices, but I think
+    --it doesn't actually do anything for performance because M2 already
+    --is smart enough to only care about nonzero entries?
+    basisdegrees := flatten apply(n, i -> apply(numgens pieces_i, j -> i));
+    subs3 := subsets(#basisdegrees,3);
+    basislookup3 := hashTable apply(#subs3, i -> subs3_i => i);
+    inds3 := (i -> basislookup3#i)\select(subs3,
+	i -> basisdegrees_(i_0) + basisdegrees_(i_1) + basisdegrees_(i_2) == n);
+    subs2 := subsets(#basisdegrees,2);
+    basislookup2 := hashTable apply(#subs2, i -> subs2_i => i);
+    inds2 := (i -> basislookup2#i)\select(subs2,
+	i -> basisdegrees_(i_0) + basisdegrees_(i_1) == n);
+    Ld := directSum pieces;
+    M = ((wedgeProduct(2,1,Ld))^inds3)*(bd ** id_Ld)*((dual wedgeProduct(1,1,Ld))_inds2);
+    rawker := gens ker M;	
+    BracketDualCache#(r1,f1,f3,n) = gens gb (id_(exteriorPower(2,Ld))_inds2 * rawker);
     return (R**BracketDualCache#(r1,f1,f3,n))
     )

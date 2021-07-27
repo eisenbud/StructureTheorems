@@ -33,6 +33,116 @@ fastExteriorPower (ZZ, Matrix) := Matrix => (k, M) -> (
 	)
     )
 
+exteriorPowerSparseHT = method() --WIP
+exteriorPowerSparseHT (ZZ,Matrix) := Matrix => (k, M) -> (
+    --get nonzero entries
+    if not M.cache.?NZCache then M.cache.NZCache = new MutableHashTable;
+    if not M.cache.NZCache#?1 then (
+	L := apply(entries M, i -> positions(i, j -> j != 0));
+    	nonz := flatten apply(numrows M, i -> (L_i)/(j -> (i,j)));
+    	M.cache.NZCache#1 = hashTable apply(nonz, pos -> pos => M_pos)
+	);
+    if not M.cache.NZCache#?ByRows then (
+	M.cache.NZCache.ByRows = new MutableHashTable;
+	scan(keys M.cache.NZCache#1,
+    	    k -> (
+		if M.cache.NZCache.ByRows#?(k_0) then (
+	    	    M.cache.NZCache.ByRows#(k_0) = M.cache.NZCache.ByRows#(k_0) | {k_1}
+	    	    ) else (
+	    	    M.cache.NZCache.ByRows#(k_0) = {k_1}
+	    	    )
+		)
+    	    );
+	M.cache.NZCache.NZRows = sort keys M.cache.NZCache.ByRows
+	);
+    --with some adjustments to formatting this separate block for k=2 wouldn't be needed
+    if (k >= 2 and not M.cache.NZCache#?2) then (
+        print ("working on minors of size", 2);
+	subs2 := toSequence\subsets(keys M.cache.NZCache#1,2);
+    	M.cache.NZCache#2 = new MutableHashTable;
+    	tempf := (a,b) -> (
+	    X := sort unique {a_0,b_0};
+	    Y := sort unique {a_1,b_1};
+	    if (length X != 2) or (length Y != 2) then return;
+	    contribution := (-1)^(number({a_0<b_0, a_1<b_1}, i -> i)) * M_a * M_b;
+	    if not M.cache.NZCache#2#?(X,Y) then M.cache.NZCache#2#(X,Y) = 0;
+	    M.cache.NZCache#2#(X,Y) = M.cache.NZCache#2#(X,Y) + contribution
+	    );
+    	--I haven't the slightest clue whether the following multithreading is actually helping
+	taskList := apply(subs2,
+	    (a,b) -> schedule(tempf, (a,b))
+	    );
+    	while true do (
+            nanosleep 100000000;
+            if (all(taskList, t->isReady(t))) then break
+            )
+    	);
+    --for k at least 3:
+    for r from 3 to k do (
+    	if not M.cache.NZCache#?r then (
+	    print ("working on minors of size", r);
+	    M.cache.NZCache#r = new MutableHashTable;
+	    --do cofactor expansion along top row
+	    cofactor := (entry, minor) -> (
+		sgn := position(minor_1, i -> i >= entry_1);
+		if sgn === null then sgn = #(minor_1);
+	    	--throw out bad pairs (entry_0 >= minor_0_0 already ensured)
+	    	if (sgn < #(minor_1) and minor_1_sgn == entry_1) then return;
+	    	X := insert(0,entry_0,minor_0);
+	    	Y := insert(sgn,entry_1,minor_1);
+	    	contribution := (-1)^sgn * M_entry * M.cache.NZCache#(r-1)#minor;
+	    	if not M.cache.NZCache#r#?(X,Y) then M.cache.NZCache#r#(X,Y) = 0;
+		M.cache.NZCache#r#(X,Y) = M.cache.NZCache#r#(X,Y) + contribution
+	    	);
+	     prevminors := new MutableHashTable;
+	     scan(keys M.cache.NZCache#(r-1),
+    		 k -> (
+		     if prevminors#?(k_0_0) then (
+	    		 prevminors#(k_0_0) = prevminors#(k_0_0) | {(drop(k_0,1),k_1)}
+	    		 ) else (
+	    		 prevminors#(k_0_0) = {(drop(k_0,1),k_1)}
+	    		 )
+		     )
+    		 );
+	     relevantrows := drop(M.cache.NZCache.NZRows, 1-r);
+	     relevantpairs := {};
+	     for m in relevantrows do (
+    		 --clean up prevminors by deleting all keys up to m
+    		 remove(prevminors,m);
+    		 relevantpairs = relevantpairs | (
+		     toSequence\ ((M.cache.NZCache.ByRows#m)/(i -> (m,i)) **
+	    		 flatten apply(keys prevminors,
+			     k -> (prevminors#k)/((x,y) -> ({k}|x,y))
+			     )
+	    		 )
+		     )
+    		 );
+	    taskList := apply(
+	        relevantpairs,
+		x -> schedule(cofactor,(x_0,x_1))
+		);
+	    while true do (
+            	nanosleep 100000000;
+            	if (all(taskList, t->isReady(t))) then break
+            	)
+	    )
+    	)
+    )
+
+exteriorPowerSparse = method()
+exteriorPowerSparse (ZZ,Matrix) := Matrix => (k, M) -> (
+    if (k <= 0 or k > rank M) then return map(exteriorPower(k,target M), exteriorPower(k,source M),0);
+    if (k == 1) then return M;
+    exteriorPowerSparseHT(k,M);
+    print "done computing individual minors, now assembling map";
+    wedgelookup := L -> (
+    	sum(#L,i -> binomial(L_i,i+1))
+    	);
+    return map(exteriorPower(k,target M), exteriorPower(k,source M),
+	apply(pairs M.cache.NZCache#k, (x,v) -> (wedgelookup(x_0),wedgelookup(x_1)) => v)
+	)
+    )
+
 --compList = method() -- takes a subset T of [n] and gives complementary one
 --compList (List, ZZ) := List => (T,n) -> (
 --    return select(n, i -> not member(i,T))

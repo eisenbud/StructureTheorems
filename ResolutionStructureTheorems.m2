@@ -18,10 +18,15 @@ newPackage(
 -- must be placed in one of the following two lists
 export {
     --Schur
+    "NZCache",
+    "NZRows",
+    "ByRows",
     "Blueprint",
     "CompiledBlueprint",
     "TableauDiagram",
     "fastExteriorPower",
+    "exteriorPowerSparseHT",
+    "exteriorPowerSparse",
     "leftWedge",
     "tdFromList",
     "bpFromList",
@@ -44,8 +49,8 @@ export {
     --Weyman
     "Cumulative",
     "Q1Coeff",
+    "WeymanP",
     "PCache",
-    "P1",
     "BracketDualCache",
     "bracketDual"
     }
@@ -86,5 +91,19 @@ uninstallPackage "ResolutionStructureTheorems"
 installPackage "ResolutionStructureTheorems"
 needsPackage "SchurFunctors"
 p=3;q=2;r=5;
-r1 = p-1; f1 = p+q; f3 = r-1; n = 3;
+r1 = p-1; f1 = p+q; f3 = r-1; n = 5;
 time bracketDual(r1,f1,f3,n); --it's pretty fast now!
+
+M = (directSum(QQ^100,QQ^40,QQ^100))_[1];
+time exteriorPowerSparse(2,M); --I don't think the alternatives will work at all
+
+--it's even competitive for non-sparse matrices
+S = ZZ[x,y,z]
+setRandomSeed "blahblah"
+M = random(S^(apply(10, i->2)),S^10)
+k=4
+allowableThreads = 8
+exteriorPowerSparse(4,M);
+exteriorPower(k,M);
+needsPackage "FastLinAlg"
+recursiveMinors(k,M,Threads => 8);

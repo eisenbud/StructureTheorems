@@ -8,19 +8,22 @@
 --    return C.cache.DefectCache#k
 --    )
 
-P1 = method() --needs to be revisited, currently broken
-P1 ChainComplex := Matrix => C -> (
+WeymanP = method()
+WeymanP (ChainComplex,ZZ) := Matrix => (C,n) -> (
     if not C.cache#?PCache then C.cache#PCache = new MutableHashTable;
-    if C.cache#PCache#?1 then return C.cache#PCache#1;
-    r := new MutableHashTable;
-    r#1 = rank C.dd_1; r#2 = rank C.dd_2; r#3 = rank C.dd_3;
-    A3 := (dual BE2(C,2))*adjoint(wedgeProduct(r#1 + 1, r#2 - 1, C_1), exteriorPower(r#1 + 1, C_1), exteriorPower(r#2 - 1, C_1));
-    A1 := dual adjoint(wedgeProduct(r#3 - 1, 1, C_3), exteriorPower(r#3 - 1, C_3), C_3);
-    A2 := dual flatten id_(exteriorPower(r#3-1,C_2));
-    B1 := flatten fastExteriorPower(r#3 - 1,C.dd_3);
-    B2 := wedgeProduct(r#3 - 1, 1, C_2);
---    C.cache#PCache#1 = map(exteriorPower(r#3, C_2), DefectAlgebraDual(1,C), (B1**B2)*(A1**A2**A3));
-    return C.cache#PCache#1
+    if C.cache#PCache#?n then return C.cache#PCache#n;
+    r1 := rank C.dd_1; r2 := rank C.dd_2; r3 := rank C.dd_3;
+    f0 := rank C_0; f1 := rank C_1; f2 := rank C_2; f3 := rank C_3;
+    R := ring C;
+    if (n <= 0) then return map(exteriorPower(r3, C_2), R^0, 0);
+    if (n == 1) then (
+	A3 := (dual BE2(C,2))*adjoint(wedgeProduct(r1 + 1, r2 - 1, C_1), exteriorPower(r1 + 1, C_1), exteriorPower(r2 - 1, C_1));
+    	A1 := dual adjoint(wedgeProduct(r3 - 1, 1, C_3), exteriorPower(r3 - 1, C_3), C_3);
+    	A2 := dual flatten id_(exteriorPower(r3-1,C_2));
+    	B1 := flatten fastExteriorPower(r3 - 1,C.dd_3);
+    	B2 := wedgeProduct(r3 - 1, 1, C_2);
+    	return C.cache#PCache#1 = map(exteriorPower(r3, C_2), (dual C_3) ** exteriorPower(r1+1,C_1), (B1**B2)*(A1**A2**A3))
+	)
     )
 
 BracketDualCache = new MutableHashTable

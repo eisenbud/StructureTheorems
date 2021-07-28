@@ -18,9 +18,9 @@ newPackage(
 -- must be placed in one of the following two lists
 export {
     --Schur
-    "NZCache",
-    "NZRows",
-    "ByRows",
+    "MinorsCache",
+    "MinorsProgress",
+    "RemainingPairs",
     "Blueprint",
     "CompiledBlueprint",
     "TableauDiagram",
@@ -57,7 +57,7 @@ export {
 exportMutable {}
 
 --needsPackage "SpechtModule" --just for permutationSign
-needsPackage "FastLinAlg"
+--needsPackage "FastLinAlg"
 needsPackage "SchurFunctors"
 
 load "./ResolutionStructureTheorems/Schur.m2"
@@ -89,21 +89,31 @@ end--
 restart
 uninstallPackage "ResolutionStructureTheorems"
 installPackage "ResolutionStructureTheorems"
-needsPackage "SchurFunctors"
-p=3;q=2;r=5;
-r1 = p-1; f1 = p+q; f3 = r-1; n = 5;
-time bracketDual(r1,f1,f3,n); --it's pretty fast now!
+--needsPackage "SchurFunctors"
+p=3;q=3;r=3;
+r1 = p-1; f1 = p+q; f3 = r-1; n = 2;
+for n from 1 to 6 do print (n |": "| net time source bracketDual(r1,f1,f3,n,Ring=>ZZ));
 
-M = (directSum(QQ^100,QQ^40,QQ^100))_[1];
-time exteriorPowerSparse(2,M); --I don't think the alternatives will work at all
+
+needsPackage "RandomIdeals"
+S = ZZ/101[x,y,z]
+setRandomSeed "blahblah"
+I = randomIdeal({2,2,2,2},basis(1,S))
+C = res I
+for n from 1 to 3 do print ("p"|n|": "| net source WeymanP(C,n) | " ---> " | net target WeymanP(C,n))
+
+M = (directSum(QQ^30,QQ^5,QQ^30))_[1];
+a  = time exteriorPower(3,M);
+a' = time fastExteriorPower(3,M); --recursiveMinors from the FastLinAlg package
+a''= time exteriorPowerSparse(4,M);
+exteriorPowerSparse(4,M) == exteriorPower(4,M);
+a == a''
+
+for i from 1 to 8 do print (i|" => "|peek M.cache.MinorsCache#i)
 
 --it's even competitive for non-sparse matrices
-S = ZZ[x,y,z]
+S = QQ[x,y,z]
 setRandomSeed "blahblah"
-M = random(S^(apply(10, i->2)),S^10)
-k=4
-allowableThreads = 8
-exteriorPowerSparse(4,M);
-exteriorPower(k,M);
-needsPackage "FastLinAlg"
-recursiveMinors(k,M,Threads => 8);
+M = random(S^(apply(8, i->2)),S^8)
+time exteriorPower(7,M);
+time exteriorPowerSparse(7,M);

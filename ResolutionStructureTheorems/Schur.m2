@@ -16,130 +16,85 @@ leftWedge (Module, Matrix, ZZ, ZZ) := Matrix => (F, x, a, b) -> (
 --    return map(Hom(V,target M), U, adjM)
 --    )
 
---just a wrapper for recursiveMinors from FastLinAlg
---hope to eventually find other optimizations/circumvent computing determinants where possible
-fastExteriorPower = method()
-fastExteriorPower (ZZ, Matrix) := Matrix => (k, M) -> (
-    recursiveMinors(k,M);
-    m := numgens target M;
-    n := numgens source M;
-    rows := subsets(m,k);
-    cols := subsets(n,k);
-    minorsList := apply(toSequence\(rows ** cols), i -> M.cache.MinorsCache#k#i);
-    return map(
-	exteriorPower(k, target M),
-	exteriorPower(k, source M),
-	matrix pack(binomial(n,k),minorsList)
-	)
-    )
+--just a wrapper for recursiveMinors from FastLinAlg, but the new exteriorPowerSparse should be better
+--fastExteriorPower = method()
+--fastExteriorPower (ZZ, Matrix) := Matrix => (k, M) -> (
+--    recursiveMinors(k,M);
+--    m := numgens target M;
+--    n := numgens source M;
+--    rows := subsets(m,k);
+--    cols := subsets(n,k);
+--    minorsList := apply(toSequence\(rows ** cols), i -> M.cache.MinorsCache#k#i);
+--    return map(
+--	exteriorPower(k, target M),
+--	exteriorPower(k, source M),
+--	matrix pack(binomial(n,k),minorsList)
+--	)
+--    )
 
-exteriorPowerSparseHT = method() --WIP
-exteriorPowerSparseHT (ZZ,Matrix) := Matrix => (k, M) -> (
-    --get nonzero entries
-    if not M.cache.?NZCache then M.cache.NZCache = new MutableHashTable;
-    if not M.cache.NZCache#?1 then (
+exteriorPowerSparseHT = method()
+exteriorPowerSparseHT (ZZ,Matrix) := {} => (k, M) -> (
+    if not M.cache.?MinorsCache then M.cache.MinorsCache = new MutableHashTable;
+    if not M.cache.MinorsCache#?1 then (
+	M.cache.MinorsCache#1 = new MutableHashTable;
 	L := apply(entries M, i -> positions(i, j -> j != 0));
-    	nonz := flatten apply(numrows M, i -> (L_i)/(j -> (i,j)));
-    	M.cache.NZCache#1 = hashTable apply(nonz, pos -> pos => M_pos)
-	);
-    if not M.cache.NZCache#?ByRows then (
-	M.cache.NZCache.ByRows = new MutableHashTable;
-	scan(keys M.cache.NZCache#1,
-    	    k -> (
-		if M.cache.NZCache.ByRows#?(k_0) then (
-	    	    M.cache.NZCache.ByRows#(k_0) = M.cache.NZCache.ByRows#(k_0) | {k_1}
-	    	    ) else (
-	    	    M.cache.NZCache.ByRows#(k_0) = {k_1}
-	    	    )
+	nonz := flatten apply(numrows M, i -> (L_i)/(j -> (i,j)));
+	scan (nonz,
+	    (i,j) -> (
+		if not M.cache.MinorsCache#1#?i then M.cache.MinorsCache#1#i = new MutableHashTable;
+		M.cache.MinorsCache#1#i#({i},{j}) = M_(i,j)
 		)
-    	    );
-	M.cache.NZCache.NZRows = sort keys M.cache.NZCache.ByRows
+	    )
 	);
-    --with some adjustments to formatting this separate block for k=2 wouldn't be needed
-    if (k >= 2 and not M.cache.NZCache#?2) then (
-        print ("working on minors of size", 2);
-	subs2 := toSequence\subsets(keys M.cache.NZCache#1,2);
-    	M.cache.NZCache#2 = new MutableHashTable;
-    	tempf := (a,b) -> (
-	    X := sort unique {a_0,b_0};
-	    Y := sort unique {a_1,b_1};
-	    if (length X != 2) or (length Y != 2) then return;
-	    contribution := (-1)^(number({a_0<b_0, a_1<b_1}, i -> i)) * M_a * M_b;
-	    if not M.cache.NZCache#2#?(X,Y) then M.cache.NZCache#2#(X,Y) = 0;
-	    M.cache.NZCache#2#(X,Y) = M.cache.NZCache#2#(X,Y) + contribution
-	    );
-    	--I haven't the slightest clue whether the following multithreading is actually helping
-	taskList := apply(subs2,
-	    (a,b) -> schedule(tempf, (a,b))
-	    );
-    	while true do (
-            nanosleep 100000000;
-            if (all(taskList, t->isReady(t))) then break
-            )
-    	);
-    --for k at least 3:
-    for r from 3 to k do (
-    	if not M.cache.NZCache#?r then (
-	    print ("working on minors of size", r);
-	    M.cache.NZCache#r = new MutableHashTable;
-	    --do cofactor expansion along top row
-	    cofactor := (entry, minor) -> (
+    if not M.cache.?MinorsProgress then M.cache.MinorsProgress = new MutableHashTable;
+    NZRows := sort keys M.cache.MinorsCache#1;
+    cofactor := (entry, minor,r,Mr) -> (
 		sgn := position(minor_1, i -> i >= entry_1);
 		if sgn === null then sgn = #(minor_1);
 	    	--throw out bad pairs (entry_0 >= minor_0_0 already ensured)
 	    	if (sgn < #(minor_1) and minor_1_sgn == entry_1) then return;
 	    	X := insert(0,entry_0,minor_0);
 	    	Y := insert(sgn,entry_1,minor_1);
-	    	contribution := (-1)^sgn * M_entry * M.cache.NZCache#(r-1)#minor;
-	    	if not M.cache.NZCache#r#?(X,Y) then M.cache.NZCache#r#(X,Y) = 0;
-		M.cache.NZCache#r#(X,Y) = M.cache.NZCache#r#(X,Y) + contribution
-	    	);
-	     prevminors := new MutableHashTable;
-	     scan(keys M.cache.NZCache#(r-1),
-    		 k -> (
-		     if prevminors#?(k_0_0) then (
-	    		 prevminors#(k_0_0) = prevminors#(k_0_0) | {(drop(k_0,1),k_1)}
-	    		 ) else (
-	    		 prevminors#(k_0_0) = {(drop(k_0,1),k_1)}
-	    		 )
-		     )
-    		 );
-	     relevantrows := drop(M.cache.NZCache.NZRows, 1-r);
-	     relevantpairs := {};
-	     for m in relevantrows do (
-    		 --clean up prevminors by deleting all keys up to m
-    		 remove(prevminors,m);
-    		 relevantpairs = relevantpairs | (
-		     toSequence\ ((M.cache.NZCache.ByRows#m)/(i -> (m,i)) **
-	    		 flatten apply(keys prevminors,
-			     k -> (prevminors#k)/((x,y) -> ({k}|x,y))
-			     )
-	    		 )
-		     )
-    		 );
-	    taskList := apply(
-	        relevantpairs,
-		x -> schedule(cofactor,(x_0,x_1))
+	    	if not Mr#(entry_0)#?(X,Y)
+		    then Mr#(entry_0)#(X,Y) = 0;
+		Mr#(entry_0)#(X,Y) =
+		    Mr#(entry_0)#(X,Y) +
+		    (-1)^sgn * M_entry * M.cache.MinorsCache#(r-1)#(minor_0_0)#minor
+	    	); 
+    for r from 2 to k do (
+	if not M.cache.MinorsCache#?r then M.cache.MinorsCache#r = new MutableHashTable;
+	if not M.cache.MinorsProgress#?r then M.cache.MinorsProgress#r = #NZRows-r+1;
+	--need to compute rxr minors from row k-r onwards
+	for u in reverse((k-r)..((M.cache.MinorsProgress#r)-1)) do (
+	    Mr := new MutableHashTable;
+	    laterrows := select(keys M.cache.MinorsCache#(r-1),
+		i -> (i > NZRows_u)
 		);
-	    while true do (
-            	nanosleep 100000000;
-            	if (all(taskList, t->isReady(t))) then break
-            	)
+	    if #laterrows > 0 then Mr#(NZRows_u) = new MutableHashTable;
+	    for t in keys M.cache.MinorsCache#1#(NZRows_u) do (
+	    	for v in laterrows do (
+		    scan(keys M.cache.MinorsCache#(r-1)#v,
+		    	minor -> cofactor((t_0_0,t_1_0),minor,r,Mr)
+			)
+		    )
+		);
+	    M.cache.MinorsCache#r = merge(M.cache.MinorsCache#r, Mr, error);
+	    M.cache.MinorsProgress#r = u
 	    )
-    	)
+	)
     )
+    
 
 exteriorPowerSparse = method()
 exteriorPowerSparse (ZZ,Matrix) := Matrix => (k, M) -> (
-    if (k <= 0 or k > rank M) then return map(exteriorPower(k,target M), exteriorPower(k,source M),0);
+    if (k <= 0 or k > min(numcols M,numrows M)) then return map(exteriorPower(k,target M), exteriorPower(k,source M),0);
     if (k == 1) then return M;
     exteriorPowerSparseHT(k,M);
-    print "done computing individual minors, now assembling map";
     wedgelookup := L -> (
     	sum(#L,i -> binomial(L_i,i+1))
     	);
     return map(exteriorPower(k,target M), exteriorPower(k,source M),
-	apply(pairs M.cache.NZCache#k, (x,v) -> (wedgelookup(x_0),wedgelookup(x_1)) => v)
+	apply(flatten (pairs\(values(M.cache.MinorsCache#k))), (x,v) -> (wedgelookup(x_0),wedgelookup(x_1)) => v)
 	)
     )
 
@@ -244,7 +199,7 @@ tableauStraighten (ZZ, TableauDiagram, List) := {} => (z,H,p) -> (
     cols := #p';
     tens := (ring H#(z,0,0))^1_0;
     for x from 0 to cols-1 do (
-	wedge := exteriorPower(p'#x, matrix apply(p'#x, y -> H#(z,x,y))); --TODO: allow options to control which "exterior power" method is used?
+	wedge := exteriorPower(p'#x, matrix apply(p'#x, y -> H#(z,x,y))); --for some reason it's a lot slower if I use exteriorPowerSparse here?
 	tens = tens ** (wedge_0); --wedge_0 to get wedge as module element
 	);
     output := ((schurModule(p,M)).cache#"Schur"#0)*tens;
@@ -256,7 +211,7 @@ tableauStraighten (ZZ, TableauDiagram, List, Module) := {} => (z,H,p,N) -> (
     cols := #p';
     tens := (ring H#(z,0,0))^1_0;
     for x from 0 to cols-1 do (
-	wedge := exteriorPower(p'#x, matrix apply(p'#x, y -> H#(z,x,y))); --TODO: allow options to control which "exterior power" method is used?
+	wedge := exteriorPower(p'#x, matrix apply(p'#x, y -> H#(z,x,y)));
 	tens = tens ** (wedge_0); --wedge_0 to get wedge as module element
 	);
     output := (N.cache#"Schur"#0)*tens;

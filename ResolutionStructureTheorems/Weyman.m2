@@ -8,6 +8,8 @@
 --    return C.cache.DefectCache#k
 --    )
 
+--currently really inefficient
+--it is completely unnecessary to compute the whole wedge2 of the previous p_i
 WeymanP = method()
 WeymanP (ChainComplex,ZZ) := Matrix => (C,n) -> (
     if not C.cache#?PCache then C.cache#PCache = new MutableHashTable;
@@ -15,35 +17,53 @@ WeymanP (ChainComplex,ZZ) := Matrix => (C,n) -> (
     r1 := rank C.dd_1; r2 := rank C.dd_2; r3 := rank C.dd_3;
     f0 := rank C_0; f1 := rank C_1; f2 := rank C_2; f3 := rank C_3;
     R := ring C;
-    if (n <= 0) then return map(exteriorPower(r3, C_2), R^0, 0);
+    K := exteriorPower(r3,C_2);
+    if (n <= 0) then return map(K, R^0, 0);
     if (n == 1) then (
 	A3 := (dual BE2(C,2))*adjoint(wedgeProduct(r1 + 1, r2 - 1, C_1), exteriorPower(r1 + 1, C_1), exteriorPower(r2 - 1, C_1));
     	A1 := dual adjoint(wedgeProduct(r3 - 1, 1, C_3), exteriorPower(r3 - 1, C_3), C_3);
     	A2 := dual flatten id_(exteriorPower(r3-1,C_2));
     	B1 := flatten fastExteriorPower(r3 - 1,C.dd_3);
     	B2 := wedgeProduct(r3 - 1, 1, C_2);
-    	return C.cache#PCache#1 = map(exteriorPower(r3, C_2), (dual C_3) ** exteriorPower(r1+1,C_1), (B1**B2)*(A1**A2**A3))
-	)
+    	return C.cache#PCache#1 = map(K, (dual C_3) ** exteriorPower(r1+1,C_1), (B1**B2)*(A1**A2**A3))
+	);
+    dk := dual koszul(2, dual exteriorPower(r3,C.dd_3));
+    pieces := apply(n, i -> source bracketDual(r1,f1,f3,i,Ring=>R));
+    Ld := directSum pieces;
+    inc := fold((x,y) -> x|y,
+	{map(exteriorPower(2,Ld),R^0,0)}|apply(ceiling(n/2), i->wedgeProduct(1,1,Ld)*(Ld_[i+1] ** Ld_[n-i-1]))
+	);
+    if (even n) then inc = inc | exteriorPowerSparse(2,Ld_[n//2]);
+    pr := dual inc;
+    q2 := fold((x,y) -> x|y,
+	{map(exteriorPower(2,K),R^0,0)}|apply(ceiling(n/2), i->wedgeProduct(1,1,K)*(WeymanP(C,i+1)**WeymanP(C,n-i-1)))
+	);
+    if (even n) then q2 = q2 | exteriorPowerSparse(2,WeymanP(C,n//2));
+    Q2 := q2*pr*bracketDual(r1,f1,f3,n, Ring => R);
+    rawQ2 := map(exteriorPower(2,K), source Q2, Q2);
+    rawdk := map(exteriorPower(2,K), source dk, dk);
+    return C.cache#PCache#n = rawQ2 // rawdk
     )
 
 BracketDualCache = new MutableHashTable
 
-bracketDual = method(Options => {Cumulative => false, Ring => ZZ}) --produces L_n -> wedge^2 L_(< n)
+bracketDual = method(Options => {Cumulative => false, Ring => QQ}) --produces L_n -> wedge^2 L_(< n)
 bracketDual (ZZ,ZZ,ZZ,ZZ) := Matrix => opts -> (r1,f1,f3,n) -> (
     R := opts#Ring;
     if opts.Cumulative then (
-	h := numrows bracketDual(r1,f1,f3,n);
+	h := numrows bracketDual(r1,f1,f3,n,Ring=>R);
 	M := fold((x,y) -> x | y,
 	    apply(n+1, i ->
-	    	bracketDual(r1,f1,f3,i) ||
-	    	map(ZZ^(h-numrows bracketDual(r1,f1,f3,i)), source bracketDual(r1,f1,f3,i),0)
+	    	bracketDual(r1,f1,f3,i,Ring=>R) ||
+	    	map(R^(h-numrows bracketDual(r1,f1,f3,i,Ring=>R)), source bracketDual(r1,f1,f3,i,Ring=>R),0)
 	    	)
 	    );
-	return R**(M || map(ZZ^(binomial(numcols M,2) - numrows M), source M, 0))
+	return (M || map(R^(binomial(numcols M,2) - numrows M), source M, 0))
 	);
     if (n <= 0) then return map(R^0,R^0,0);
     if (n == 1) then return map(R^0,R^(binomial(f1,r1+1) * f3),0);
-    if BracketDualCache#?(r1,f1,f3,n) then return (R**BracketDualCache#(r1,f1,f3,n));
+    if not BracketDualCache#?R then BracketDualCache#R = new MutableHashTable;
+    if BracketDualCache#R#?(r1,f1,f3,n) then return BracketDualCache#R#(r1,f1,f3,n);
     if (n == 2) then (
 	F1 := R^(f1); F3 := R^(f3);
 	MBP := bpFromList {
@@ -102,25 +122,17 @@ bracketDual (ZZ,ZZ,ZZ,ZZ) := Matrix => opts -> (r1,f1,f3,n) -> (
     	    };
 	C := schurMap(NBP, (compileBlueprint MBP)_0, g);
 	alpha2 := (id_(symmetricPower(2,F3)) ** B) * C;
-	return BracketDualCache#(r1,f1,f3,n) = gens ker (alpha1 || alpha2)
+	return BracketDualCache#R#(r1,f1,f3,n) = gens ker (alpha1 || alpha2);
 	);
-    bd := bracketDual(r1,f1,f3,n-1,Cumulative => true);
-    pieces := apply(n, i -> source bracketDual(r1,f1,f3,i));
-    --the following was an attempt to trim matrices, but I think
-    --it doesn't actually do anything for performance because M2 already
-    --is smart enough to only care about nonzero entries?
-    basisdegrees := flatten apply(n, i -> apply(numgens pieces_i, j -> i));
-    subs3 := subsets(#basisdegrees,3);
-    basislookup3 := hashTable apply(#subs3, i -> subs3_i => i);
-    inds3 := (i -> basislookup3#i)\select(subs3,
-	i -> basisdegrees_(i_0) + basisdegrees_(i_1) + basisdegrees_(i_2) == n);
-    subs2 := subsets(#basisdegrees,2);
-    basislookup2 := hashTable apply(#subs2, i -> subs2_i => i);
-    inds2 := (i -> basislookup2#i)\select(subs2,
-	i -> basisdegrees_(i_0) + basisdegrees_(i_1) == n);
+    bd := bracketDual(r1,f1,f3,n-1,Cumulative => true,Ring => R);
+    pieces := apply(n, i -> source bracketDual(r1,f1,f3,i,Ring => R));
     Ld := directSum pieces;
-    M = ((wedgeProduct(2,1,Ld))^inds3)*(bd ** id_Ld)*((dual wedgeProduct(1,1,Ld))_inds2);
+    Ldn := fold((x,y) -> x|y,
+	apply(ceiling(n/2), i->wedgeProduct(1,1,Ld)*(Ld_[i+1] ** Ld_[n-i-1]))
+	);
+    if (even n) then Ldn = Ldn | exteriorPowerSparse(2,Ld_[n//2]);
+    --the next line takes the longest!
+    M = (wedgeProduct(2,1,Ld))*(bd ** id_Ld)*(dual wedgeProduct(1,1,Ld))*Ldn;
     rawker := gens ker M;	
-    BracketDualCache#(r1,f1,f3,n) = gens gb (id_(exteriorPower(2,Ld))_inds2 * rawker);
-    return (R**BracketDualCache#(r1,f1,f3,n))
+    return BracketDualCache#R#(r1,f1,f3,n) = gens gb (Ldn * rawker);
     )

@@ -1,24 +1,5 @@
 doc ///
     Key
-        fastExteriorPower
-        (fastExteriorPower,ZZ,Matrix)
-    Headline
-        exterior power of a map
-    Usage
-        fastExteriorPower(i,f)
-    Inputs
-        i: ZZ
-        f: Matrix
-    Outputs
-        : Matrix
-            the {\tt i}-th exterior power of {\tt f}
-    Description
-        Text
-            This method is just a wrapper for @TO recursiveMinors@ from @TO FastLinAlg@ which functions the same as @TO (exteriorPower,ZZ,Matrix)@.
-///
-
-doc ///
-    Key
         leftWedge
         (leftWedge, Module, Matrix, ZZ, ZZ)
     Headline

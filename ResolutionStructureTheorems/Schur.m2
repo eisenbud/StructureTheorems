@@ -258,11 +258,17 @@ interpret (Thing, CompiledBlueprint) := {} => (H',BP) -> (
 --X must have basis dictionary!!
 schurMap = method()
 schurMap (Blueprint,Module,Function) := Matrix => (BP', X, F) -> (
-    (Y,BP) := compileBlueprint BP';
+    return schurMap (compileBlueprint(BP') | (X,F))
+    )
+schurMap (Module, CompiledBlueprint, Module, Function) := Matrix => (Y, BP, X, F) -> (
     M := map(Y,0,0);
     for i from 0 to #X.cache.BasisDict-1 do (
 	img := F(X.cache.BasisDict#i);
-	M = M | sum(apply(#img, j -> img#j#0 * matrix(interpret(img#j#1,BP))));
+        if #img > 0 then (
+	    M = M | sum(apply(#img, j -> img#j#0 * matrix(interpret(img#j#1,BP))))
+	    ) else (
+	    M = M | map(Y,(ring Y)^1,0) --extend by a zero column
+	    )
 	);
-    return map(Y,X,M);
+    return map(Y,X,M)
     )

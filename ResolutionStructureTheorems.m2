@@ -52,7 +52,18 @@ export {
     "WeymanP",
     "PCache",
     "BracketDualCache",
-    "bracketDual"
+    "bracketDual",
+    
+    --GradedEnvelopingAlgebra
+    "Bracket",
+    "Multiplication",
+    "Grading",
+    "LieAlgebra",
+    "EnvelopingData",
+    "initEnvelopingData",
+    "multi",
+    "symProd",
+    "wedgeProductConditional"
     }
 exportMutable {}
 
@@ -63,6 +74,7 @@ needsPackage "SchurFunctors"
 load "./ResolutionStructureTheorems/Schur.m2"
 load "./ResolutionStructureTheorems/BuchsbaumEisenbud.m2"
 load "./ResolutionStructureTheorems/Weyman.m2"
+load "./ResolutionStructureTheorems/GradedEnvelopingAlgebra.m2"
 
 beginDocumentation()
 
@@ -117,3 +129,27 @@ setRandomSeed "blahblah"
 M = random(S^(apply(8, i->2)),S^8)
 time exteriorPower(7,M);
 time exteriorPowerSparse(7,M);
+
+M = directSum(QQ^0,QQ^5,QQ^5,QQ^5,QQ^5,QQ^5)
+plist = select(toList\conjugate\partitions(5,3), i -> #i==3)
+f = p -> (
+    tensor toSequence((unique p)/(i-> exteriorPower(number(p, j -> j==i),(components M)_i)))
+    )
+f\plist
+
+--enveloping tests
+p=2;q=3;r=5;
+r1 = p-1; f1 = p+q; f3 = r-1; n = 2;
+for n from 1 to 6 do print (n |": "| net time source bracketDual(r1,f1,f3,n));
+M = dual bracketDual(r1,f1,f3,5,Cumulative=>true);
+L = directSum(QQ^0,QQ^40,QQ^30,QQ^20,QQ^10,QQ^4)
+UE8 = initEnvelopingData(L,M);
+
+--example
+multi(1,1,UE8);
+formation UE8.Grading#2
+nonbracketpart = (UE8.Grading#2)_[{1,1}]*symProd(1,1,UE8.LieAlgebra#1);
+bracketpart = (UE8.Grading#2)_[{2}]*
+    (dual bracketDual(r1,f1,f3,2))*
+    wedgeProductConditional(UE8.LieAlgebra#1); --i ** j -> i ^ j if i > j, else 0
+bracketpart + nonbracketpart == multi(1,1,UE8)

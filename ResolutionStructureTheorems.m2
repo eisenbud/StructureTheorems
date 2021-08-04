@@ -53,6 +53,7 @@ export {
     "PCache",
     "BracketDualCache",
     "bracketDual",
+    "fundamentalRepMap",
     
     --GradedEnvelopingAlgebra
     "Bracket",
@@ -63,6 +64,8 @@ export {
     "initEnvelopingData",
     "multi",
     "symProd",
+    "symGraded",
+    "symPartition",
     "wedgeProductConditional"
     }
 exportMutable {}
@@ -146,10 +149,29 @@ L = directSum(QQ^0,QQ^40,QQ^30,QQ^20,QQ^10,QQ^4)
 UE8 = initEnvelopingData(L,M);
 
 --example
-multi(1,1,UE8);
+time multi(1,2,UE8);
 formation UE8.Grading#2
 nonbracketpart = (UE8.Grading#2)_[{1,1}]*symProd(1,1,UE8.LieAlgebra#1);
 bracketpart = (UE8.Grading#2)_[{2}]*
     (dual bracketDual(r1,f1,f3,2))*
     wedgeProductConditional(UE8.LieAlgebra#1); --i ** j -> i ^ j if i > j, else 0
 bracketpart + nonbracketpart == multi(1,1,UE8)
+
+dx = new MutableHashTable; dy = new MutableHashTable; dz = new MutableHashTable;
+m = 3
+time multi(1,3,UE8);
+dx#m = (id_(QQ^f1)**multi(1,m,UE8))*
+(fundamentalRepMap(r1,f1,f3,"x")**id_(symGraded(m,UE8)));
+dy#m = (id_(dual QQ^f1)**multi(1,m,UE8))*
+(fundamentalRepMap(r1,f1,f3,"y")**id_(symGraded(m,UE8)));
+dz#m = (id_(dual QQ^f3)**multi(1,m,UE8))*
+(fundamentalRepMap(r1,f1,f3,"z")**id_(symGraded(m,UE8)));
+rank coker dx#1 --160
+rank coker dx#2 --460
+rank coker dx#3 --1095
+rank coker dy#1 --60
+rank coker dy#2 --120
+rank coker dy#3 --215
+rank coker dz#1 --20
+rank coker dz#2 --30
+rank coker dz#3 --40

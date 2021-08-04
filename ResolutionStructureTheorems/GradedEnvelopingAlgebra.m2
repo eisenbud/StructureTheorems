@@ -1,4 +1,8 @@
 EnvelopingData = new Type of HashTable
+SymOpCache = hashTable{
+    "Prod" => new MutableHashTable,
+    "Split" => new MutableHashTable
+    }
 
 --L should be a direct sum 0 ++ L1 ++ L2 ++ ... ++ LN, matrix is bracket wedge^2 L -> L
 initEnvelopingData = method()
@@ -123,6 +127,7 @@ symGraded (ZZ,EnvelopingData) := Module => (n,U) -> (
 symSplit = method()
 symSplit (ZZ,ZZ,Module) := Matrix => (a,b,M) -> (
     d := rank M;
+    if SymOpCache#"Split"#?(a,b,d) then return (ring M)**SymOpCache#"Split"#(a,b,d);
     bases := {};
     increment := x -> (
 	--increment the last entry possible
@@ -147,12 +152,14 @@ symSplit (ZZ,ZZ,Module) := Matrix => (a,b,M) -> (
 	    ((symLookup take(u,a))*binomial(d-1+b,b) + symLookup take(u,-b),symLookup u) => 1
 	    )
 	);
-    return map(QQ^(binomial(d-1+a,a))**QQ^(binomial(d-1+b,b)),QQ^(binomial(d-1+a+b,a+b)), entrylist)
+    SymOpCache#"Split"#(a,b,d) = map(ZZ^(binomial(d-1+a,a) * binomial(d-1+b,b)),ZZ^(binomial(d-1+a+b,a+b)), entrylist);
+    return (ring M)**SymOpCache#"Split"#(a,b,d);
     )
 
 symProd = method()
 symProd (ZZ,ZZ,Module) := Matrix => (a,b,M) -> (
     d := rank M;
+    if SymOpCache#"Prod"#?(a,b,d) then return (ring M)**SymOpCache#"Prod"#(a,b,d);
     basesA := {};
     basesB := {};
     increment := x -> (
@@ -184,7 +191,8 @@ symProd (ZZ,ZZ,Module) := Matrix => (a,b,M) -> (
 	    (symLookup sort (u_0 | u_1), (symLookup u_0)*binomial(d-1+b,b) + symLookup u_1) => 1
 	    )
 	);
-    return map(QQ^(binomial(d-1+a+b,a+b)),QQ^(binomial(d-1+a,a))**QQ^(binomial(d-1+b,b)), entrylist)
+    SymOpCache#"Prod"#(a,b,d) = map(ZZ^(binomial(d-1+a+b,a+b)),ZZ^(binomial(d-1+a,a)*binomial(d-1+b,b)), entrylist);
+    return (ring M)**SymOpCache#"Prod"#(a,b,d)
     )
 
 --sends i x j to i ^ j if i > j, and 0 otherwise

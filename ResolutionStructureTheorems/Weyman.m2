@@ -136,3 +136,27 @@ bracketDual (ZZ,ZZ,ZZ,ZZ) := Matrix => opts -> (r1,f1,f3,n) -> (
     rawker := gens ker M;	
     return BracketDualCache#R#(r1,f1,f3,n) = gens gb (Ldn * rawker);
     )
+
+--outputs M -> N ** L_1 to be used in construction of reps V(omega_x/y/z_{r-1})
+fundamentalRepMap = method()
+fundamentalRepMap (ZZ,ZZ,ZZ,String) := Matrix => (r1,f1,f3,xyz) -> (
+    F1 := QQ^f1; F3 := QQ^f3;
+    if xyz=="x" then (
+	return flip((dual F3)**exteriorPower(r1+1,F1), F1)*
+	    (id_(dual F3)**(
+		    dual (schurModule({2}|apply(r1,i->1),F1)).cache#"Schur"#0 --I'm not sure this is the correct map?
+		    ))
+	) else if xyz=="y" then (
+        return (flip(dual F3, dual F1)**(id_(exteriorPower(r1+1,F1))))*
+	    (id_(dual F3)**(gens ker (
+			(reshape(QQ^1,(dual F1)**F1,id_(F1))**id_(exteriorPower(r1,F1)))*
+			(id_(dual F1)**(dual wedgeProduct(1,r1,F1)))
+			)
+		    )
+		)
+	) else if xyz=="z" then (
+	return (gens ker (reshape(QQ^1,F3**(dual F3),id_(F3))))**id_(exteriorPower(r1+1,F1))
+	) else (
+	error "fundamentalRepMap: last input must be string x,y, or z"
+	)
+    )
